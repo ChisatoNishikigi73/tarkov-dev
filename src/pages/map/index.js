@@ -920,6 +920,108 @@ function Map() {
             }
         }
 
+
+
+
+        function aada() {
+            // Add Player Position
+        const urlParams = new URLSearchParams(window.location.search);
+
+        //判断是否有参数
+        if (urlParams.has('json')) {
+            const playerPosition = L.layerGroup();
+            const urlParamsData = urlParams.get('json');
+
+            //计算四元数转换为方向
+
+            //四元到三维向量
+            const forwardVector = [0, 0, -1]; // 前方向量(0N)
+            function multiplyQuaternionAndVector(quaternion, vector) {
+                let x = vector[0], y = vector[1], z = vector[2];
+                let qx = quaternion[0], qy = quaternion[1], qz = quaternion[2], qw = quaternion[3];
+
+                let ix = qw * x + qy * z - qz * y;
+                let iy = qw * y + qz * x - qx * z;
+                let iz = qw * z + qx * y - qy * x;
+                let iw = -qx * x - qy * y - qz * z;
+
+                return [
+                    ix * qw + iw * -qx + iy * -qz - iz * -qy,
+                    iy * qw + iw * -qy + iz * -qx - ix * -qz,
+                    iz * qw + iw * -qz + ix * -qy - iy * -qx
+                ];
+            }
+
+            //三维向量转换为方位角
+            function toDegrees(radians) {
+                return radians * (180 / Math.PI);
+            }
+
+            function getBearing(vector) {
+                let angle = Math.atan2(vector[0], vector[2]);
+                let bearing = toDegrees(angle);
+                if (bearing < 0) {
+                    bearing += 360;
+                }
+                return bearing;
+            }
+
+            const json_ = JSON.parse(urlParamsData);
+            if (json_.self) {
+                addIcon(json_.selfjson, false);
+            }
+
+            for (let i = 0; i < json_.teammate; i++) {
+                addIcon(json_.teammatejson[i], true);
+            }
+
+            function addIcon(position_json, is_teammate) {
+                const a = position_json.position.a;
+                const b = position_json.position.b;
+                const c = position_json.position.c;
+                const d = position_json.position.d;
+                let quaternion = [a, b, c, d];
+                let rotatedVector = multiplyQuaternionAndVector(quaternion, forwardVector);
+                let bearing = getBearing(rotatedVector);
+                const rotatedBearing = bearing + 180;
+                console.log('Rotated Vector:', rotatedVector);
+                console.log(`Bearing: ${bearing} degrees`);
+
+                const icon = is_teammate ? "teammate_position" : "player_position";
+
+                const lockIcon = L.divIcon({
+                    className: 'spawn-icon',
+                    // html: `<img src="${process.env.PUBLIC_URL}/maps/interactive/spawn_pmc.png"/><span class="extract-name pmc">${player.name}</span>`,
+                    //设置旋转
+                    html: `<img src="${process.env.PUBLIC_URL}/maps/interactive/${icon}.png" style="transform: rotate(${rotatedBearing}deg);"/><span class="extract-name pmc">${position_json.name}</span>`,
+                    iconAnchor: [12, 12]
+                });
+
+                const positionMarker = L.marker(pos(position_json.position), {
+                    icon: lockIcon,
+                    position: position_json.position,
+                    title: position_json.name,
+                });
+                const popupContent = L.DomUtil.create('div');
+                const lockTypeNode = L.DomUtil.create('div', undefined, popupContent);
+                lockTypeNode.innerHTML = `<strong>${position_json.name}<br/>时间：${position_json.date_time}<br/>游戏时间：${position_json.time_n}</strong>`;
+                positionMarker.bindPopup(L.popup().setContent(popupContent));
+                positionMarker.on('add', checkMarkerForActiveLayers);
+                positionMarker.on('click', activateMarkerLayer);
+                positionMarker.addTo(playerPosition);
+                map.addLayer(playerPosition, position_json.name, 'playerPositions');
+            }
+        }
+        }
+        aada();
+
+
+
+
+
+
+
+
         //add extracts
         if (mapData.extracts.length > 0) {
             const extractLayers = {

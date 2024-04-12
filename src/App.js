@@ -82,7 +82,7 @@ const About = React.lazy(() => import('./pages/about/index.js'));
 
 const APIDocs = React.lazy(() => import('./pages/api-docs/index.js'));
 
-const socketServer = `wss://socket.tarkov.dev`;
+const socketServer = `ws://socket.tarkov.lycorecocafe.com`;
 
 let socket = false;
 let tarkovTrackerProgressInterval = false;
@@ -167,10 +167,78 @@ function App() {
                 return false;
             }
 
+            // if (message.data.type === 'playerPosition') {
+            //     dispatch(setPlayerPosition(message.data));
+            //     return false;
+            // }
+
+
             if (message.data.type === 'playerPosition') {
-                dispatch(setPlayerPosition(message.data));
+                // 构造
+                let json_;
+                const urlParams = new URLSearchParams(window.location.search);
+                if (!urlParams.has('json')) {
+                    json_ = {
+                            "self": false,
+                            "teammate": 0,
+                            "selfjson": {},
+                            "teammatejson": []
+                        };
+
+                }
+                else {
+                    const urlParamsData = urlParams.get('json');
+                    json_ = JSON.parse(urlParamsData);
+                }
+
+
+                //如果是本人
+                if (!message.data.is_teammate) {
+                    json_.self = true;
+                    json_.selfjson = message.data.playerPosition;
+                }
+                else {
+                    if(json_.teammatejson === undefined) {
+                        json_.teammatejson = []
+                    }
+                    //寻找是否已经存在相同的名字
+                    let isExist = false;
+                    for (let i = 0; i < json_.teammatejson.length; i++) {
+                        if (json_.teammatejson[i].name === message.data.playerPosition.name) {
+                            json_.teammatejson[i] = message.data.playerPosition;
+                            isExist = true;
+                        }
+                    }
+                    if (!isExist) {
+                        json_.teammate++
+                        json_.teammatejson.push(message.data.playerPosition);
+                    }
+
+                }
+                console.log(json_)
+                const json = JSON.stringify(json_);
+                console.log(json)
+                const currentPath = window.location.pathname;
+                navigate('/map')
+                //等待3秒
+                setTimeout(() => {
+                    navigate(`${currentPath}?json=${json}`);
+                },100)
+
+
                 return false;
+
+                // const urlParams = new URLSearchParams(window.location.search);
+                //
+                // const urlParamsData = urlParams.get('json');
+                // const json_old = JSON.parse(urlParamsData);
             }
+
+
+
+
+
+
 
             navigate(`/${message.data.type}/${message.data.value}`);
         };
